@@ -1,9 +1,10 @@
 # One triage run: Claude Code (your subscription) + the InboxPilot MCP server.
-# Usage: .\scripts\run-triage.ps1 [-Model sonnet] [-MaxTurns 80] [-SinceHours 26]
+# Usage: .\scripts\run-triage.ps1 [-Model sonnet] [-MaxTurns 80] [-SinceHours 26] [-EnvFile path]
 param(
     [string]$Model = "sonnet",
     [int]$MaxTurns = 80,
-    [int]$SinceHours = 26
+    [int]$SinceHours = 26,
+    [string]$EnvFile = ""   # default: %LOCALAPPDATA%\InboxPilot\inboxpilot.env
 )
 $ErrorActionPreference = "Stop"
 $root = Split-Path -Parent $PSScriptRoot
@@ -21,6 +22,20 @@ $dataDir = Join-Path $env:LOCALAPPDATA "InboxPilot"
 $runDir  = Join-Path $dataDir "run"
 $logDir  = Join-Path $dataDir "logs"
 New-Item -ItemType Directory -Force $runDir, $logDir | Out-Null
+
+# Server parameters: KEY=VALUE lines from inboxpilot.env become the server's environment.
+# mcp.json is written outside the repo because it then holds secrets.
+if (-not $EnvFile) { $EnvFile = Join-Path $dataDir "inboxpilot.env" }
+$serverEnv = @{}
+if (Test-Path $EnvFile) {
+    foreach ($line in Get-Content $EnvFile -Encoding UTF8) {
+        $t = $line.Trim()
+        if ($t -eq "" -or $t.StartsWith("#") -or -not $t.Contains("=")) { continue }
+        $i = $t.IndexOf("=")
+        $serverEnv[$t.Substring(0, $i).Trim()] = $t.Substring($i + 1).Trim()
+    }
+}
+$server.env = $serverEnv
 
 $mcpFile = Join-Path $runDir "mcp.json"
 $json = @{ mcpServers = @{ inboxpilot = $server } } | ConvertTo-Json -Depth 5

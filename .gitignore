@@ -8,5 +8,7 @@ TestResults/
 
 # Secrets and local config — never commit
 appsettings.Local.json
+inboxpilot.env
+mcp.json
 client_secret*.json
 *.auth-record.json

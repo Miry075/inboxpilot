@@ -14,8 +14,23 @@ RUN_DIR="$DATA_DIR/run"
 LOG_DIR="$DATA_DIR/logs"
 mkdir -p "$RUN_DIR" "$LOG_DIR"
 
+# Server parameters: KEY=VALUE lines from inboxpilot.env become the server's environment.
+ENV_FILE="${INBOXPILOT_ENV_FILE:-$DATA_DIR/inboxpilot.env}"
+json_escape() { printf '%s' "$1" | sed -e 's/\\/\\\\/g' -e 's/"/\\"/g'; }
+trim() { printf '%s' "$1" | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//'; }
+ENV_JSON=""
+if [[ -f "$ENV_FILE" ]]; then
+  while IFS= read -r line || [[ -n "$line" ]]; do
+    line="$(trim "$line")"
+    [[ -z "$line" || "$line" == \#* || "$line" != *=* ]] && continue
+    key="$(trim "${line%%=*}")"; value="$(trim "${line#*=}")"
+    ENV_JSON+="${ENV_JSON:+, }\"$(json_escape "$key")\": \"$(json_escape "$value")\""
+  done < "$ENV_FILE"
+fi
+
+umask 077  # mcp.json holds secrets
 cat > "$RUN_DIR/mcp.json" <<EOF
-{ "mcpServers": { "inboxpilot": { "command": "dotnet", "args": ["$DLL"] } } }
+{ "mcpServers": { "inboxpilot": { "command": "dotnet", "args": ["$(json_escape "$DLL")"], "env": { $ENV_JSON } } } }
 EOF
 
 {

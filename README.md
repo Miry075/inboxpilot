@@ -78,13 +78,50 @@ Do not use a work/client mailbox here: admin consent and data policies apply.
 4. Create a **Utility** template, e.g. name `inboxpilot_alert`, body `New InboxPilot alert: {{1}}`, wait for approval.
    Without a template, WhatsApp only delivers if you messaged the business number in the last 24 hours.
 
-### 4. Configure
+### 4. Configure: server parameters
 
-Copy `src/InboxPilot.Mcp/appsettings.Local.example.json` to `src/InboxPilot.Mcp/appsettings.Local.json`
-(git-ignored) and fill in `Outlook.ClientId` and your notification channel.
-Environment variables also work, e.g. `InboxPilot__Notify__Telegram__BotToken`.
+Every value is a **parameter of the MCP server**, given as an environment variable or a `--switch`.
+The agent never sees them: they are not tool arguments.
 
-Disable a mailbox with `"Gmail": { "Enabled": false }` or `"Outlook": { "Enabled": false }`.
+| Switch | Environment variable | Value |
+|---|---|---|
+| `--outlook-client-id` | `INBOXPILOT_OUTLOOK_CLIENT_ID` | Entra app (client) ID |
+| `--outlook-tenant-id` | `INBOXPILOT_OUTLOOK_TENANT_ID` | `consumers` (default) |
+| `--outlook-enabled` | `INBOXPILOT_OUTLOOK_ENABLED` | `true` / `false` |
+| `--gmail-client-secret` | `INBOXPILOT_GMAIL_CLIENT_SECRET` | Path to the Google client JSON (default `client_secret.json` in the data folder) |
+| `--gmail-enabled` | `INBOXPILOT_GMAIL_ENABLED` | `true` / `false` |
+| `--notify-channel` | `INBOXPILOT_NOTIFY_CHANNEL` | `telegram` / `whatsapp` |
+| `--notify-daily-cap` | `INBOXPILOT_NOTIFY_DAILY_CAP` | default `10` |
+| `--whatsapp-token` | `INBOXPILOT_WHATSAPP_TOKEN` | Meta system-user token (secret) |
+| `--whatsapp-phone-number-id` | `INBOXPILOT_WHATSAPP_PHONE_NUMBER_ID` | Sender phone number ID |
+| `--whatsapp-to` | `INBOXPILOT_WHATSAPP_TO` | Your number, e.g. `32470000000` |
+| `--whatsapp-template` | `INBOXPILOT_WHATSAPP_TEMPLATE` | e.g. `inboxpilot_alert` |
+| `--whatsapp-template-language` | `INBOXPILOT_WHATSAPP_TEMPLATE_LANGUAGE` | e.g. `en` |
+| `--telegram-bot-token` | `INBOXPILOT_TELEGRAM_BOT_TOKEN` | From @BotFather (secret) |
+| `--telegram-chat-id` | `INBOXPILOT_TELEGRAM_CHAT_ID` | Your chat ID |
+| `--data-dir` | `INBOXPILOT_DATA_DIR` | default `%LOCALAPPDATA%\InboxPilot` |
+
+`InboxPilot.Mcp.exe params` prints the full list; `InboxPilot.Mcp.exe config` shows the effective values with secrets masked.
+Precedence, last wins: `appsettings.json` → `appsettings.Local.json` → environment variables → `--switches`.
+
+**For scheduled runs (recommended):** copy `agent/inboxpilot.env.example` to
+`%LOCALAPPDATA%\InboxPilot\inboxpilot.env` and fill it. The server and the CLI commands read it
+automatically, and `run-triage.ps1` also passes it as the server's environment in `mcp.json`. Use environment variables for secrets: `--switches` are visible in the process list.
+
+**For interactive Claude Code sessions:**
+
+```powershell
+claude mcp add --scope user inboxpilot `
+  -e INBOXPILOT_OUTLOOK_CLIENT_ID=<id> `
+  -e INBOXPILOT_NOTIFY_CHANNEL=whatsapp `
+  -e INBOXPILOT_WHATSAPP_TOKEN=<token> `
+  -e INBOXPILOT_WHATSAPP_PHONE_NUMBER_ID=<id> `
+  -e INBOXPILOT_WHATSAPP_TO=32470000000 `
+  -e INBOXPILOT_WHATSAPP_TEMPLATE=inboxpilot_alert `
+  -- "C:\path\to\InboxPilot\publish\InboxPilot.Mcp.exe"
+```
+
+The CLI commands take the same switches, e.g. `InboxPilot.Mcp.exe test-notify --notify-channel telegram`.
 
 ### 5. Build, sign in, test
 
