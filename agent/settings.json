@@ -1,0 +1,15 @@
+{
+  "permissions": {
+    "allow": [
+      "mcp__inboxpilot"
+    ],
+    "deny": [
+      "Bash",
+      "Edit",
+      "Write",
+      "NotebookEdit",
+      "WebFetch",
+      "WebSearch"
+    ]
+  }
+}

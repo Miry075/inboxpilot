@@ -1,0 +1,8 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/InboxPilot.Mcp/InboxPilot.Mcp.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/InboxPilot.Tests/InboxPilot.Tests.csproj" />
+  </Folder>
+</Solution>

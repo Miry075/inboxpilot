@@ -1,0 +1,12 @@
+bin/
+obj/
+publish/
+.vs/
+.idea/
+*.user
+TestResults/
+
+# Secrets and local config — never commit
+appsettings.Local.json
+client_secret*.json
+*.auth-record.json
