@@ -169,13 +169,44 @@ public sealed class OutlookProvider(IOptions<InboxPilotOptions> options, ILogger
             await using (var fs = File.OpenRead(AuthRecordPath))
                 record = await AuthenticationRecord.DeserializeAsync(fs, ct);
 
-            _client = new GraphServiceClient(CreateCredential(record, allowInteractive: false), Scopes);
+            var credential = new NonCaeCredential(CreateCredential(record, allowInteractive: false));
+
+            // Fail early with a clear message instead of on the first Graph call.
+            try
+            {
+                await credential.GetTokenAsync(new TokenRequestContext(Scopes), ct);
+            }
+            catch (AuthenticationRequiredException ex)
+            {
+                throw new InvalidOperationException(
+                    "Outlook sign-in expired or the token cache is unreadable (macOS: check Keychain access for 'InboxPilot'). " +
+                    "Run: InboxPilot.Mcp auth outlook. Detail: " + ex.Message);
+            }
+
+            _client = new GraphServiceClient(credential, Scopes);
             return _client;
         }
         finally
         {
             _gate.Release();
         }
+    }
+
+    /// <summary>
+    /// The Graph SDK (Kiota) requests tokens with Continuous Access Evaluation enabled, but the interactive
+    /// sign-in stores its token in the non-CAE cache. Azure.Identity keeps those caches apart, so the silent
+    /// lookup misses and asks for interactive sign-in. Forcing one mode for every request keeps them aligned.
+    /// </summary>
+    internal sealed class NonCaeCredential(TokenCredential inner) : TokenCredential
+    {
+        public override AccessToken GetToken(TokenRequestContext context, CancellationToken cancellationToken) =>
+            inner.GetToken(WithoutCae(context), cancellationToken);
+
+        public override ValueTask<AccessToken> GetTokenAsync(TokenRequestContext context, CancellationToken cancellationToken) =>
+            inner.GetTokenAsync(WithoutCae(context), cancellationToken);
+
+        internal static TokenRequestContext WithoutCae(TokenRequestContext c) =>
+            new(c.Scopes, c.ParentRequestId, c.Claims, c.TenantId, isCaeEnabled: false);
     }
 
     private static string FormatAddress(EmailAddress? a) =>
