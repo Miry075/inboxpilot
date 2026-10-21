@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using InboxPilot.Mcp.Configuration;
@@ -92,6 +93,69 @@ public sealed class WhatsAppNotifier(HttpClient http, IOptions<InboxPilotOptions
         var s = text.Replace("\r\n", " | ").Replace('\n', ' ').Replace('\t', ' ');
         while (s.Contains("    ")) s = s.Replace("    ", " ");
         return s.Length > 1000 ? s[..1000] : s;
+    }
+}
+
+public sealed class IMessageNotifier(IOptions<InboxPilotOptions> options) : IOwnerNotifier
+{
+    private readonly IMessageOptions _o = options.Value.Notify.IMessage;
+
+    public string Channel => "imessage";
+
+    // Recipient and text are passed as argv, never interpolated into the script (no AppleScript injection).
+    private static readonly string[] Script =
+    [
+        "on run argv",
+        "set theRecipient to item 1 of argv",
+        "set theText to item 2 of argv",
+        "tell application \"Messages\"",
+        "set theService to 1st account whose service type = iMessage",
+        "send theText to participant theRecipient of theService",
+        "end tell",
+        "end run"
+    ];
+
+    internal static IReadOnlyList<string> BuildArguments(string recipient, string text)
+    {
+        var args = new List<string>();
+        foreach (var line in Script) { args.Add("-e"); args.Add(line); }
+        args.Add(recipient);
+        args.Add(text.Length > 500 ? text[..500] : text);
+        return args;
+    }
+
+    public async Task SendAsync(string text, CancellationToken ct)
+    {
+        if (!OperatingSystem.IsMacOS())
+            throw new InvalidOperationException("The iMessage channel only works on macOS.");
+        if (string.IsNullOrWhiteSpace(_o.Recipient))
+            throw new InvalidOperationException("iMessage Recipient not configured (phone with country code, e.g. +32470000000, or Apple ID email).");
+
+        var psi = new ProcessStartInfo("/usr/bin/osascript")
+        {
+            RedirectStandardOutput = true,
+            RedirectStandardError = true,
+            UseShellExecute = false
+        };
+        foreach (var a in BuildArguments(_o.Recipient.Trim(), "InboxPilot\n" + text)) psi.ArgumentList.Add(a);
+
+        using var process = Process.Start(psi) ?? throw new InvalidOperationException("Could not start osascript.");
+        using var timeout = CancellationTokenSource.CreateLinkedTokenSource(ct);
+        timeout.CancelAfter(TimeSpan.FromSeconds(30));
+        try
+        {
+            var stderr = await process.StandardError.ReadToEndAsync(timeout.Token);
+            await process.WaitForExitAsync(timeout.Token);
+            if (process.ExitCode != 0)
+                throw new InvalidOperationException(
+                    "iMessage failed: " + (stderr.Length > 500 ? stderr[..500] : stderr).Trim() +
+                    " (First run: allow the app/Terminal to control Messages in System Settings > Privacy & Security > Automation.)");
+        }
+        catch (OperationCanceledException)
+        {
+            try { process.Kill(true); } catch { /* already exited */ }
+            throw new InvalidOperationException("iMessage send timed out (a permission prompt may be waiting on screen).");
+        }
     }
 }
 

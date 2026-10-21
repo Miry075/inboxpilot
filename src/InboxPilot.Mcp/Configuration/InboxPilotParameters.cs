@@ -34,11 +34,13 @@ public static class InboxPilotParameters
 
         new("labels-prefix", $"{Root}:Labels:Prefix", false, "Label/category prefix"),
 
-        new("notify-channel", $"{Root}:Notify:Channel", false, "telegram | whatsapp"),
+        new("notify-channel", $"{Root}:Notify:Channel", false, "telegram | whatsapp | imessage"),
         new("notify-daily-cap", $"{Root}:Notify:DailyCap", false, "Max alerts per day"),
 
         new("telegram-bot-token", $"{Root}:Notify:Telegram:BotToken", true, "From @BotFather"),
         new("telegram-chat-id", $"{Root}:Notify:Telegram:ChatId", false, "Your chat id"),
+
+        new("imessage-recipient", $"{Root}:Notify:IMessage:Recipient", false, "Your phone (+32...) or Apple ID email; macOS only"),
 
         new("whatsapp-token", $"{Root}:Notify:WhatsApp:AccessToken", true, "Meta system-user token"),
         new("whatsapp-phone-number-id", $"{Root}:Notify:WhatsApp:PhoneNumberId", false, "Sender phone number ID"),

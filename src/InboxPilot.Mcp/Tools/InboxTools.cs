@@ -134,7 +134,7 @@ public static class InboxTools
     }
 
     [McpServerTool(Name = "notify_owner")]
-    [Description("Sends a short alert to the mailbox OWNER only (Telegram or WhatsApp, fixed in config). " +
+    [Description("Sends a short alert to the mailbox OWNER only (Telegram, WhatsApp or iMessage, fixed in config). " +
                  "Use for P1 emails and reached goals. Daily cap and duplicate suppression apply. " +
                  "Never include links, passwords, codes or IBANs copied from emails.")]
     public static async Task<ActionResult> NotifyOwner(

@@ -21,12 +21,15 @@ public static class ServiceCollectionExtensions
 
         services.AddHttpClient<TelegramNotifier>(c => c.Timeout = TimeSpan.FromSeconds(20));
         services.AddHttpClient<WhatsAppNotifier>(c => c.Timeout = TimeSpan.FromSeconds(20));
+        services.AddTransient<IMessageNotifier>();
         services.AddTransient<IOwnerNotifier>(sp =>
         {
             var channel = sp.GetRequiredService<IOptions<InboxPilotOptions>>().Value.Notify.Channel;
-            return channel.Equals("whatsapp", StringComparison.OrdinalIgnoreCase)
-                ? sp.GetRequiredService<WhatsAppNotifier>()
-                : sp.GetRequiredService<TelegramNotifier>();
+            if (channel.Equals("whatsapp", StringComparison.OrdinalIgnoreCase))
+                return sp.GetRequiredService<WhatsAppNotifier>();
+            if (channel.Equals("imessage", StringComparison.OrdinalIgnoreCase))
+                return sp.GetRequiredService<IMessageNotifier>();
+            return sp.GetRequiredService<TelegramNotifier>();
         });
 
         services.AddSingleton<NotificationGuard>();

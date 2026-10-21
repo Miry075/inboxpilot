@@ -71,7 +71,7 @@ public sealed class LabelOptions
 
 public sealed class NotifyOptions
 {
-    /// <summary>"telegram" or "whatsapp".</summary>
+    /// <summary>"telegram", "whatsapp" or "imessage" (macOS only).</summary>
     public string Channel { get; set; } = "telegram";
 
     /// <summary>Hard cap on owner notifications per calendar day.</summary>
@@ -79,12 +79,19 @@ public sealed class NotifyOptions
 
     public TelegramOptions Telegram { get; set; } = new();
     public WhatsAppOptions WhatsApp { get; set; } = new();
+    public IMessageOptions IMessage { get; set; } = new();
 }
 
 public sealed class TelegramOptions
 {
     public string BotToken { get; set; } = "";
     public string ChatId { get; set; } = "";
+}
+
+public sealed class IMessageOptions
+{
+    /// <summary>Your own phone (international format with "+") or Apple ID email. macOS only.</summary>
+    public string Recipient { get; set; } = "";
 }
 
 public sealed class WhatsAppOptions

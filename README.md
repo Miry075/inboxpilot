@@ -85,6 +85,11 @@ Do not use a work/client mailbox here: admin consent and data policies apply.
 2. Send any message to your new bot.
 3. Open `https://api.telegram.org/bot<TOKEN>/getUpdates` → copy `message.chat.id`.
 
+**iMessage (macOS only, no account needed):**
+Set `INBOXPILOT_NOTIFY_CHANNEL=imessage` and `INBOXPILOT_IMESSAGE_RECIPIENT=+32…` (or your Apple ID email).
+Messages must be signed in with iMessage. The first `test-notify` asks to allow Terminal to control Messages
+(System Settings > Privacy & Security > Automation). The Mac must be on and logged in when the job runs.
+
 **WhatsApp (Meta Cloud API):**
 1. [developers.facebook.com](https://developers.facebook.com) → create a Business app → add **WhatsApp**.
 2. Note the **Phone number ID**; add your own number as a recipient.
@@ -104,7 +109,8 @@ The agent never sees them: they are not tool arguments.
 | `--outlook-enabled` | `INBOXPILOT_OUTLOOK_ENABLED` | `true` / `false` |
 | `--gmail-client-secret` | `INBOXPILOT_GMAIL_CLIENT_SECRET` | Path to the Google client JSON (default `client_secret.json` in the data folder) |
 | `--gmail-enabled` | `INBOXPILOT_GMAIL_ENABLED` | `true` / `false` |
-| `--notify-channel` | `INBOXPILOT_NOTIFY_CHANNEL` | `telegram` / `whatsapp` |
+| `--notify-channel` | `INBOXPILOT_NOTIFY_CHANNEL` | `telegram` / `whatsapp` / `imessage` (macOS) |
+| `--imessage-recipient` | `INBOXPILOT_IMESSAGE_RECIPIENT` | Your phone (`+32…`) or Apple ID email (iMessage, macOS only) |
 | `--notify-daily-cap` | `INBOXPILOT_NOTIFY_DAILY_CAP` | default `10` |
 | `--whatsapp-token` | `INBOXPILOT_WHATSAPP_TOKEN` | Meta system-user token (secret) |
 | `--whatsapp-phone-number-id` | `INBOXPILOT_WHATSAPP_PHONE_NUMBER_ID` | Sender phone number ID |
