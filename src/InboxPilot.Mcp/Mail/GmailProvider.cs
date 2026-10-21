@@ -74,6 +74,39 @@ public sealed class GmailProvider(IOptions<InboxPilotOptions> options, ILogger<G
         return results;
     }
 
+    public async Task<IReadOnlyList<MailSummary>> FindFromSenderAsync(
+        string sender, DateTimeOffset since, int max, CancellationToken ct)
+    {
+        var normalized = SenderFilter.Normalize(sender);
+        var svc = await ServiceAsync(ct);
+
+        var list = svc.Users.Messages.List(Me);
+        list.Q = $"from:{normalized} after:{since.ToUnixTimeSeconds()}";
+        list.MaxResults = Math.Clamp(max, 1, 100);
+        var response = await list.ExecuteAsync(ct);
+
+        var results = new List<MailSummary>();
+        foreach (var stub in response.Messages ?? Array.Empty<Message>())
+        {
+            var get = svc.Users.Messages.Get(Me, stub.Id);
+            get.Format = UsersResource.MessagesResource.GetRequest.FormatEnum.Metadata;
+            get.MetadataHeaders = new Repeatable<string>(["From", "Subject", "Date"]);
+            var msg = await get.ExecuteAsync(ct);
+
+            var from = Header(msg.Payload, "From") ?? "";
+            if (!SenderFilter.Matches(from, normalized)) continue; // Gmail from: also matches partial names
+
+            results.Add(new MailSummary(
+                Account, msg.Id, msg.ThreadId, from,
+                Header(msg.Payload, "Subject") ?? "",
+                MailText.Normalize(System.Net.WebUtility.HtmlDecode(msg.Snippet ?? "")),
+                ToDate(msg.InternalDate),
+                await LabelNamesAsync(msg.LabelIds ?? new List<string>(), ct)));
+        }
+
+        return results;
+    }
+
     public async Task<MailDetail> GetAsync(string id, CancellationToken ct)
     {
         var svc = await ServiceAsync(ct);

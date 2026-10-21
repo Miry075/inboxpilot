@@ -252,3 +252,15 @@ tests/InboxPilot.Tests/    xUnit tests for HTML sanitising and reply MIME
 agent/                     instructions, priorities, permission settings for Claude Code
 scripts/                   publish, run-triage (sh/ps1), register-launchd (macOS), register-task (Windows)
 ```
+
+## Check for emails from a sender
+
+```bash
+./scripts/check-sender.sh                                   # syndic@thehousing.expert, last 24h
+./scripts/check-sender.sh syndic@thehousing.expert 72       # custom sender and window (hours)
+./scripts/check-sender.sh thehousing.expert 48 --account outlook --notify true
+```
+
+Sender is an address or a whole domain. `--notify true` sends you an alert with the subject only
+(daily cap and duplicate suppression apply). Exit code `0` = found, `10` = none.
+Outlook looks at the 100 most recent messages in the window (all folders).

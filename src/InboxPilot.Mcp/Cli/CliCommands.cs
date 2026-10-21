@@ -12,6 +12,8 @@ namespace InboxPilot.Mcp.Cli;
 ///   auth [gmail|outlook|all]   browser sign-in, stores refresh tokens
 ///   test                        lists 3 recent unprocessed emails per mailbox
 ///   test-notify                 sends a test alert to your phone
+///   check-sender <address|domain> [--since-hours 24] [--account outlook|gmail|all] [--notify true]
+///                               exit code 0 = found, 10 = none. --notify alerts you (daily cap + dedupe apply)
 ///   where                       prints the data directory
 ///   params                      lists every server parameter (switch + env var)
 ///   config                      prints the effective configuration, secrets masked
@@ -19,7 +21,7 @@ namespace InboxPilot.Mcp.Cli;
 /// </summary>
 public static class CliCommands
 {
-    public static readonly string[] Names = ["auth", "test", "test-notify", "where", "params", "config"];
+    public static readonly string[] Names = ["auth", "test", "test-notify", "check-sender", "where", "params", "config"];
 
     public static bool IsCommand(string[] args) =>
         args.Length > 0 && Names.Contains(args[0], StringComparer.OrdinalIgnoreCase);
@@ -73,6 +75,9 @@ public static class CliCommands
                     }
                     return 0;
 
+                case "check-sender":
+                    return await CheckSenderAsync(sp, args, options, ct);
+
                 case "test-notify":
                     var notifier = sp.GetRequiredService<IOwnerNotifier>();
                     await notifier.SendAsync("InboxPilot test message. Setup works.", ct);
@@ -87,6 +92,61 @@ public static class CliCommands
         }
 
         return 2;
+    }
+
+    private static async Task<int> CheckSenderAsync(
+        IServiceProvider sp, string[] args, InboxPilotOptions options, CancellationToken ct)
+    {
+        var configuration = sp.GetRequiredService<IConfiguration>();
+        var sender = SenderFilter.Normalize(Positional(args));
+        var hours = int.TryParse(configuration["since-hours"], out var h) ? Math.Clamp(h, 1, 24 * 30) : 24;
+        var account = (configuration["account"] ?? "all").ToLowerInvariant();
+        var notify = bool.TryParse(configuration["notify"], out var n) && n;
+        var since = DateTimeOffset.UtcNow.AddHours(-hours);
+
+        var found = new List<MailSummary>();
+        foreach (var p in Providers(sp, account))
+        {
+            try
+            {
+                found.AddRange(await p.FindFromSenderAsync(sender, since, 20, ct));
+            }
+            catch (Exception ex)
+            {
+                Console.Error.WriteLine($"{p.Account}: {ex.Message}");
+            }
+        }
+
+        found = found.OrderByDescending(e => e.ReceivedAt).ToList();
+        if (found.Count == 0)
+        {
+            Console.WriteLine($"No email from '{sender}' in the last {hours}h.");
+            return 10;
+        }
+
+        Console.WriteLine($"{found.Count} email(s) from '{sender}' in the last {hours}h:");
+        foreach (var e in found)
+            Console.WriteLine($"  [{e.Account}] {e.ReceivedAt:yyyy-MM-dd HH:mm}  {e.From}  |  {e.Subject}");
+
+        if (notify)
+        {
+            var latest = found[0];
+            // Subject only, no body: nothing from the email's content is forwarded beyond the title.
+            var text = $"Email from {sender}: {latest.Subject} ({latest.ReceivedAt:dd/MM HH:mm})";
+            var (allowed, reason) = sp.GetRequiredService<NotificationGuard>().TryReserve(text);
+            if (allowed)
+            {
+                var notifier = sp.GetRequiredService<IOwnerNotifier>();
+                await notifier.SendAsync(text, ct);
+                Console.WriteLine($"Alert sent via {notifier.Channel}.");
+            }
+            else
+            {
+                Console.WriteLine($"Alert skipped: {reason}");
+            }
+        }
+
+        return 0;
     }
 
     /// <summary>First positional argument after the command, skipping --switch [value] pairs.</summary>

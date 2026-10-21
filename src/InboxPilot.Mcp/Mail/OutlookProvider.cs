@@ -71,6 +71,38 @@ public sealed class OutlookProvider(IOptions<InboxPilotOptions> options, ILogger
             .ToList();
     }
 
+    public async Task<IReadOnlyList<MailSummary>> FindFromSenderAsync(
+        string sender, DateTimeOffset since, int max, CancellationToken ct)
+    {
+        var normalized = SenderFilter.Normalize(sender);
+        var client = await ClientAsync(ct);
+
+        // Filter by date on the server (ordering + a "from" filter triggers Graph's InefficientFilter error),
+        // match the sender on the client. Looks at the 100 most recent messages in the window, all folders.
+        var page = await client.Me.Messages.GetAsync(cfg =>
+        {
+            cfg.QueryParameters.Filter = $"receivedDateTime ge {since.UtcDateTime:yyyy-MM-ddTHH:mm:ssZ}";
+            cfg.QueryParameters.Orderby = ["receivedDateTime desc"];
+            cfg.QueryParameters.Top = 100;
+            cfg.QueryParameters.Select =
+                ["id", "conversationId", "from", "subject", "bodyPreview", "receivedDateTime", "categories"];
+        }, ct);
+
+        return (page?.Value ?? new List<Message>())
+            .Where(m => SenderFilter.Matches(m.From?.EmailAddress?.Address ?? "", normalized))
+            .Take(max)
+            .Select(m => new MailSummary(
+                Account,
+                m.Id ?? "",
+                m.ConversationId ?? "",
+                FormatAddress(m.From?.EmailAddress),
+                m.Subject ?? "",
+                MailText.Normalize(m.BodyPreview ?? ""),
+                m.ReceivedDateTime,
+                m.Categories?.ToList() ?? []))
+            .ToList();
+    }
+
     public async Task<MailDetail> GetAsync(string id, CancellationToken ct)
     {
         var client = await ClientAsync(ct);
