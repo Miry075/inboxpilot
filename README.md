@@ -264,3 +264,15 @@ scripts/                   publish, run-triage (sh/ps1), register-launchd (macOS
 Sender is an address or a whole domain. `--notify true` sends you an alert with the subject only
 (daily cap and duplicate suppression apply). Exit code `0` = found, `10` = none.
 Outlook looks at the 100 most recent messages in the window (all folders).
+
+### Alert me whenever a sender emails (watcher)
+
+```bash
+./scripts/register-launchd-watch.sh syndic@thehousing.expert          # poll every 5 min
+./scripts/register-launchd-watch.sh "a@x.com,thehousing.expert" 120   # several senders, every 2 min
+./scripts/register-launchd-watch.sh --remove
+```
+
+It polls (no Claude, no tokens). The first run only records existing emails; after that each new email
+sends one alert (subject only). Seen emails are kept in `seen-emails.json`; logs in `logs/watch.out.log`.
+The daily alert cap still applies (`--notify-daily-cap`). Needs your Mac on and logged in.

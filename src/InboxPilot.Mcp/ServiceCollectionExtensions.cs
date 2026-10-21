@@ -33,6 +33,7 @@ public static class ServiceCollectionExtensions
         });
 
         services.AddSingleton<NotificationGuard>();
+        services.AddSingleton<SeenStore>();
         services.AddSingleton<AuditLog>();
         return services;
     }
