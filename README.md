@@ -8,13 +8,27 @@ AI triage for Gmail and Outlook.com, run by **Claude Code on your Claude subscri
 - It **never sends, forwards or deletes** email. Those tools do not exist.
 
 ```
-Task Scheduler ──> run-triage.ps1 ──> claude -p (your subscription)
-                                          │  stdio (MCP)
-                                          ▼
-                                 InboxPilot.Mcp.exe
-                     ┌──────────────┼───────────────┐
-                Gmail API     Microsoft Graph    Telegram / WhatsApp
+launchd / Task Scheduler ──> run-triage ──> claude -p (your subscription)
+                                                 │  stdio (MCP)
+                                                 ▼
+                                          InboxPilot.Mcp
+                            ┌──────────────┼───────────────┐
+                       Gmail API     Microsoft Graph    Telegram / WhatsApp
 ```
+
+## Runs on macOS, Windows and Linux
+
+The server is plain .NET 10. Only the launcher and scheduler differ:
+
+| | macOS / Linux | Windows |
+|---|---|---|
+| Data folder (tokens, `inboxpilot.env`, logs) | macOS: `~/Library/Application Support/InboxPilot`<br>Linux: `~/.local/share/InboxPilot` | `%LOCALAPPDATA%\InboxPilot` |
+| Build + test + publish | `./scripts/publish.sh` | `.\scripts\publish.ps1` |
+| Server / CLI | `./publish/InboxPilot.Mcp` | `.\publish\InboxPilot.Mcp.exe` |
+| One triage run | `./scripts/run-triage.sh [model] [maxTurns] [sinceHours]` | `.\scripts\run-triage.ps1` |
+| Schedule | `./scripts/register-launchd.sh` (macOS), cron (Linux) | `.\scripts\register-task.ps1` |
+
+Commands below use the macOS form; swap per the table on Windows. `InboxPilot.Mcp where` prints the data folder.
 
 ## Tools exposed to the agent
 
@@ -27,7 +41,7 @@ Task Scheduler ──> run-triage.ps1 ──> claude -p (your subscription)
 | `mark_processed` | Adds `InboxPilot/Processed` so the next run skips it |
 | `notify_owner` | Message to **your** phone only. Daily cap and duplicate suppression |
 
-Every action is logged to `%LOCALAPPDATA%\InboxPilot\audit\audit-YYYY-MM.jsonl`.
+Every action is logged to `<data folder>/audit/audit-YYYY-MM.jsonl`.
 
 ---
 
@@ -35,11 +49,10 @@ Every action is logged to `%LOCALAPPDATA%\InboxPilot\audit\audit-YYYY-MM.jsonl`.
 
 ### 0. Prerequisites
 
-- .NET 10 SDK: `dotnet --version`
+- .NET 10 SDK: `dotnet --version` (macOS: installer from dot.net or `brew install --cask dotnet-sdk`)
 - Claude Code installed and signed in with your Pro/Max account: run `claude` once, then check `claude auth status`.
 
-Everything sensitive lives in `%LOCALAPPDATA%\InboxPilot` (tokens, client secret, logs), never in the repo.
-Print the exact folder any time with `InboxPilot.Mcp.exe where`.
+Everything sensitive lives in the data folder (tokens, client secret, logs), never in the repo.
 
 ### 1. Gmail (Google Cloud)
 
@@ -51,7 +64,8 @@ Print the exact folder any time with `InboxPilot.Mcp.exe where`.
    In "Testing" status Google expires refresh tokens after 7 days and the scheduled runs break weekly.
    You will see an "unverified app" warning at sign-in: Advanced → continue. Fine for personal use.
 5. **Credentials → Create credentials → OAuth client ID → Desktop app** → download the JSON.
-6. Save it as `%LOCALAPPDATA%\InboxPilot\client_secret.json`.
+6. Save it as `client_secret.json` in the data folder
+   (macOS: `~/Library/Application Support/InboxPilot/client_secret.json`).
 
 ### 2. Outlook.com (Microsoft Entra)
 
@@ -99,39 +113,51 @@ The agent never sees them: they are not tool arguments.
 | `--whatsapp-template-language` | `INBOXPILOT_WHATSAPP_TEMPLATE_LANGUAGE` | e.g. `en` |
 | `--telegram-bot-token` | `INBOXPILOT_TELEGRAM_BOT_TOKEN` | From @BotFather (secret) |
 | `--telegram-chat-id` | `INBOXPILOT_TELEGRAM_CHAT_ID` | Your chat ID |
-| `--data-dir` | `INBOXPILOT_DATA_DIR` | default `%LOCALAPPDATA%\InboxPilot` |
+| `--data-dir` | `INBOXPILOT_DATA_DIR` | default: the data folder for your OS |
 
-`InboxPilot.Mcp.exe params` prints the full list; `InboxPilot.Mcp.exe config` shows the effective values with secrets masked.
-Precedence, last wins: `appsettings.json` → `appsettings.Local.json` → environment variables → `--switches`.
+`InboxPilot.Mcp params` prints the full list; `InboxPilot.Mcp config` shows the effective values with secrets masked.
+Precedence, last wins: `appsettings.json` → `appsettings.Local.json` → `inboxpilot.env` → environment variables → `--switches`.
 
-**For scheduled runs (recommended):** copy `agent/inboxpilot.env.example` to
-`%LOCALAPPDATA%\InboxPilot\inboxpilot.env` and fill it. The server and the CLI commands read it
-automatically, and `run-triage.ps1` also passes it as the server's environment in `mcp.json`. Use environment variables for secrets: `--switches` are visible in the process list.
+**For scheduled runs (recommended):** copy `agent/inboxpilot.env.example` to `inboxpilot.env` in the
+data folder and fill it. The server and the CLI commands read it automatically, and `run-triage`
+also passes it as the server's environment in `mcp.json`. Use environment variables or this file for
+secrets: `--switches` are visible in the process list.
+
+```bash
+# macOS
+DATA="$HOME/Library/Application Support/InboxPilot"; mkdir -p "$DATA"
+cp agent/inboxpilot.env.example "$DATA/inboxpilot.env" && chmod 600 "$DATA/inboxpilot.env"
+open -e "$DATA/inboxpilot.env"
+```
 
 **For interactive Claude Code sessions:**
 
-```powershell
-claude mcp add --scope user inboxpilot `
-  -e INBOXPILOT_OUTLOOK_CLIENT_ID=<id> `
-  -e INBOXPILOT_NOTIFY_CHANNEL=whatsapp `
-  -e INBOXPILOT_WHATSAPP_TOKEN=<token> `
-  -e INBOXPILOT_WHATSAPP_PHONE_NUMBER_ID=<id> `
-  -e INBOXPILOT_WHATSAPP_TO=32470000000 `
-  -e INBOXPILOT_WHATSAPP_TEMPLATE=inboxpilot_alert `
-  -- "C:\path\to\InboxPilot\publish\InboxPilot.Mcp.exe"
+```bash
+claude mcp add --scope user inboxpilot \
+  -e INBOXPILOT_OUTLOOK_CLIENT_ID=<id> \
+  -e INBOXPILOT_NOTIFY_CHANNEL=whatsapp \
+  -e INBOXPILOT_WHATSAPP_TOKEN=<token> \
+  -e INBOXPILOT_WHATSAPP_PHONE_NUMBER_ID=<id> \
+  -e INBOXPILOT_WHATSAPP_TO=32470000000 \
+  -e INBOXPILOT_WHATSAPP_TEMPLATE=inboxpilot_alert \
+  -- "$HOME/path/to/inboxpilot/publish/InboxPilot.Mcp"
 ```
 
-The CLI commands take the same switches, e.g. `InboxPilot.Mcp.exe test-notify --notify-channel telegram`.
+If `inboxpilot.env` is filled, the `-e` lines are optional: the server reads that file itself.
+The CLI commands take the same switches, e.g. `InboxPilot.Mcp test-notify --notify-channel telegram`.
 
 ### 5. Build, sign in, test
 
-```powershell
-.\scripts\publish.ps1                     # runs tests, publishes to .\publish
-.\publish\InboxPilot.Mcp.exe auth gmail   # browser sign-in, token stored locally
-.\publish\InboxPilot.Mcp.exe auth outlook
-.\publish\InboxPilot.Mcp.exe test         # lists 3 unprocessed emails per mailbox
-.\publish\InboxPilot.Mcp.exe test-notify  # alert on your phone
+```bash
+chmod +x scripts/*.sh
+./scripts/publish.sh                      # runs tests, publishes to ./publish
+./publish/InboxPilot.Mcp auth gmail       # browser sign-in, token stored locally
+./publish/InboxPilot.Mcp auth outlook     # token cache stored in the macOS Keychain
+./publish/InboxPilot.Mcp test             # lists 3 unprocessed emails per mailbox
+./publish/InboxPilot.Mcp test-notify      # alert on your phone
 ```
+
+Windows: `.\scripts\publish.ps1`, then `.\publish\InboxPilot.Mcp.exe auth gmail`, and so on.
 
 ### 6. Tell the agent your priorities
 
@@ -140,21 +166,31 @@ Edit `agent/priorities.md`: VIP senders, your daily rate for goal G1, signature.
 
 ### 7. First run, watched
 
-```powershell
-.\scripts\run-triage.ps1
+```bash
+./scripts/run-triage.sh sonnet 80 6     # model, max turns, look-back hours: start with 6h on a full inbox
 ```
 
 Check Gmail labels / Outlook categories under `InboxPilot/…`, your Drafts folders, and the log in
-`%LOCALAPPDATA%\InboxPilot\logs`. On a full inbox, start small: `.\scripts\run-triage.ps1 -SinceHours 6`.
+`<data folder>/logs`. Windows: `.\scripts\run-triage.ps1 -SinceHours 6`.
 
 ### 8. Schedule
 
-```powershell
-.\scripts\register-task.ps1                                 # 08:05 to 20:05 every 2 hours
-.\scripts\register-task.ps1 -Times "08:05","13:05","18:05"  # lighter
+**macOS (launchd):**
+
+```bash
+./scripts/register-launchd.sh                       # 08:05 to 20:05 every 2 hours
+./scripts/register-launchd.sh 08:05 13:05 18:05     # lighter
+launchctl kickstart gui/$(id -u)/com.inboxpilot.triage   # run once now
+./scripts/register-launchd.sh --remove
 ```
 
-The task runs only while you are logged on to Windows (it uses your Claude Code login and token caches).
+Runs while you are logged in. If the Mac sleeps through a scheduled time, launchd runs it once on wake.
+First scheduled run: macOS may ask to let `bash`/`dotnet` access the Keychain (Outlook token, Claude login):
+choose **Always Allow**.
+
+**Windows (Task Scheduler):** `.\scripts\register-task.ps1` or `-Times "08:05","13:05","18:05"`.
+
+**Linux (cron):** `5 8-20/2 * * * /path/to/inboxpilot/scripts/run-triage.sh`
 
 ---
 
@@ -162,8 +198,8 @@ The task runs only while you are logged on to Windows (it uses your Claude Code 
 
 Register the server with Claude Code once, then ask anything about your inbox in a normal session:
 
-```powershell
-claude mcp add --scope user inboxpilot -- "C:\path\to\InboxPilot\publish\InboxPilot.Mcp.exe"
+```bash
+claude mcp add --scope user inboxpilot -- "$HOME/path/to/inboxpilot/publish/InboxPilot.Mcp"
 ```
 
 Examples: "Summarise every mission offer from this week", "Draft replies to the wedding vendors".
@@ -183,7 +219,7 @@ Examples: "Summarise every mission offer from this week", "Draft replies to the 
 ## Limits
 
 - Runs count against your Claude plan's usage limits. Seven runs a day on Sonnet is light for Max;
-  on Pro, use fewer runs or reduce `-MaxTurns`.
+  on Pro, use fewer runs or a lower max-turns value.
 - Personal automation only. If other people ever use this (the SaaS idea), switch to the Claude API
   with an API key; this MCP server stays reusable as is.
 - Scheduled, not real-time: worst-case delay is the gap between runs.
@@ -192,12 +228,15 @@ Examples: "Summarise every mission offer from this week", "Draft replies to the 
 
 | Symptom | Fix |
 |---|---|
-| `Gmail is not authorized yet` | `InboxPilot.Mcp.exe auth gmail` |
+| `Gmail is not authorized yet` | `InboxPilot.Mcp auth gmail` |
 | Gmail works for 7 days then fails | OAuth app still in "Testing": publish it, then `auth gmail` again |
-| `Outlook is not authorized yet` / `AuthenticationRequiredException` | `InboxPilot.Mcp.exe auth outlook` |
-| Tools not visible to Claude | Run `claude -p "list your tools" --strict-mcp-config --mcp-config %LOCALAPPDATA%\InboxPilot\run\mcp.json` |
-| WhatsApp error 131047 | Outside the 24h window: configure `TemplateName` |
-| Nothing happens on schedule | Task Scheduler → History; check `claude` is on PATH for your user |
+| `Outlook is not authorized yet` / `AuthenticationRequiredException` | `InboxPilot.Mcp auth outlook` |
+| Tools not visible to Claude | `claude -p "list your tools" --strict-mcp-config --mcp-config "<data folder>/run/mcp.json"` |
+| WhatsApp error 131047 | Outside the 24h window: configure the template |
+| Nothing happens on schedule (macOS) | `<data folder>/logs/launchd.err.log`; `launchctl print gui/$(id -u)/com.inboxpilot.triage` |
+| Nothing happens on schedule (Windows) | Task Scheduler → History; check `claude` is on PATH for your user |
+| `'dotnet' not found` / `'claude' not found` from launchd | Add its folder to the list at the top of `scripts/_common.sh` |
+| macOS: `./publish/InboxPilot.Mcp` says it can't find .NET | .NET installed outside `/usr/local/share/dotnet`: use `dotnet ./publish/InboxPilot.Mcp.dll <command>` or set `DOTNET_ROOT` |
 
 ## Project layout
 
@@ -205,5 +244,5 @@ Examples: "Summarise every mission offer from this week", "Draft replies to the 
 src/InboxPilot.Mcp/        MCP server (tools, Gmail + Graph providers, notifiers, CLI)
 tests/InboxPilot.Tests/    xUnit tests for HTML sanitising and reply MIME
 agent/                     instructions, priorities, permission settings for Claude Code
-scripts/                   publish, run-triage (ps1/sh), register-task
+scripts/                   publish, run-triage (sh/ps1), register-launchd (macOS), register-task (Windows)
 ```

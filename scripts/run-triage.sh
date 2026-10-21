@@ -1,15 +1,20 @@
 #!/usr/bin/env bash
-# One triage run on macOS/Linux. Usage: ./scripts/run-triage.sh [model] [max_turns] [since_hours]
+# One triage run on macOS/Linux: Claude Code (your subscription) + the InboxPilot MCP server.
+# Usage: ./scripts/run-triage.sh [model] [max_turns] [since_hours]
 set -euo pipefail
 
 MODEL="${1:-sonnet}"
 MAX_TURNS="${2:-80}"
 SINCE_HOURS="${3:-26}"
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-DLL="$ROOT/publish/InboxPilot.Mcp.dll"
-[[ -f "$DLL" ]] || { echo "Server not published. Run: dotnet publish src/InboxPilot.Mcp -c Release -o publish" >&2; exit 1; }
+source "$ROOT/scripts/_common.sh"
 
-DATA_DIR="${XDG_DATA_HOME:-$HOME/.local/share}/InboxPilot"
+DLL="$ROOT/publish/InboxPilot.Mcp.dll"
+[[ -f "$DLL" ]] || die "Server not published. Run ./scripts/publish.sh first."
+DOTNET="$(command -v dotnet)" || die "'dotnet' not found. Install the .NET 10 SDK."
+CLAUDE="$(command -v claude)" || die "'claude' not found. Install Claude Code and sign in once."
+
+DATA_DIR="$(inboxpilot_data_dir)"
 RUN_DIR="$DATA_DIR/run"
 LOG_DIR="$DATA_DIR/logs"
 mkdir -p "$RUN_DIR" "$LOG_DIR"
@@ -29,8 +34,9 @@ if [[ -f "$ENV_FILE" ]]; then
 fi
 
 umask 077  # mcp.json holds secrets
+# Absolute dotnet path: launchd/cron runs with a minimal PATH.
 cat > "$RUN_DIR/mcp.json" <<EOF
-{ "mcpServers": { "inboxpilot": { "command": "dotnet", "args": ["$(json_escape "$DLL")"], "env": { $ENV_JSON } } } }
+{ "mcpServers": { "inboxpilot": { "command": "$(json_escape "$DOTNET")", "args": ["$(json_escape "$DLL")"], "env": { $ENV_JSON } } } }
 EOF
 
 {
@@ -41,8 +47,8 @@ EOF
 } > "$RUN_DIR/system-prompt.md"
 
 LOG="$LOG_DIR/triage-$(date +%Y%m%d-%H%M).log"
-cd "$RUN_DIR"
-claude -p "Run the inbox triage now, following your instructions. Use sinceHours=$SINCE_HOURS." \
+cd "$RUN_DIR"   # outside the repo: no project CLAUDE.md or settings leak into the run
+"$CLAUDE" -p "Run the inbox triage now, following your instructions. Use sinceHours=$SINCE_HOURS." \
   --model "$MODEL" \
   --max-turns "$MAX_TURNS" \
   --permission-mode dontAsk \
