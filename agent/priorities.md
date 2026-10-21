@@ -19,7 +19,7 @@ Fill in every `[...]` placeholder before the first run.
 - Wedding vendor changes or confirmations that need an answer.
 
 **P2 — reply within 2 days, draft a reply**
-- Recruiters and ESN with a generic but relevant offer.
+- Recruiters and ESN with a generic but relevant offer (always category `Recruiter`, draft, and alert: see Recruiters in the instructions).
 - Clients, partners and colleagues asking a question.
 - Personal emails from real people.
 
@@ -45,7 +45,7 @@ Fill in every `[...]` placeholder before the first run.
 
 ## Categories
 
-Use: `Client`, `MissionOffer`, `Admin`, `Finance`, `Personal`, `Wedding`, `Newsletter`, `Review`.
+Use: `Client`, `MissionOffer`, `Recruiter`, `Admin`, `Finance`, `Personal`, `Wedding`, `Newsletter`, `Review`.
 
 ## Tone and signature
 

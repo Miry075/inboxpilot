@@ -55,7 +55,7 @@ public sealed class OutlookOptions
 public sealed class LabelOptions
 {
     private static readonly string[] Defaults =
-        ["P1", "P2", "P3", "P4", "Client", "MissionOffer", "Admin", "Finance", "Personal", "Wedding", "Newsletter", "Review"];
+        ["P1", "P2", "P3", "P4", "Client", "MissionOffer", "Recruiter", "Admin", "Finance", "Personal", "Wedding", "Newsletter", "Review"];
 
     public string Prefix { get; set; } = "InboxPilot";
 

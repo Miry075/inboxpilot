@@ -36,7 +36,7 @@ Commands below use the macOS form; swap per the table on Windows. `InboxPilot.Mc
 |---|---|
 | `list_new_emails` | Inbox emails in the window, not yet labelled `InboxPilot/Processed` |
 | `read_email` | Plain-text body (HTML stripped, hidden text removed, truncated to 8,000 chars) |
-| `apply_label` | Whitelisted labels only: P1–P4, Client, MissionOffer, Admin, Finance, Personal, Wedding, Newsletter, Review |
+| `apply_label` | Whitelisted labels only: P1–P4, Client, MissionOffer, Recruiter, Admin, Finance, Personal, Wedding, Newsletter, Review |
 | `create_reply_draft` | Native draft in the same thread. Not sent |
 | `mark_processed` | Adds `InboxPilot/Processed` so the next run skips it |
 | `notify_owner` | Message to **your** phone only. Daily cap and duplicate suppression |

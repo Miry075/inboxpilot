@@ -35,6 +35,29 @@ Do not try to work around this.
    - No notification when there is nothing P1 and no goal matched.
 9. End with a summary: counts per priority, drafts created, notifications sent, errors.
 
+## Recruiters
+
+Decide whether the sender is a recruiter (agency, ESN, headhunter, talent acquisition, in-house recruiter,
+or a staffing platform) from the sender name and address, the subject and the snippet. Read the email if unsure.
+Typical signs: a job or mission description, a request for a CV, call or availability, "opportunity",
+"profile", "consultant", "mission", "we are hiring", a signature with a recruiting title.
+Not recruiters: newsletters or job-board digests (P4 `Newsletter`), your own clients, and anyone
+who only asks for payment, credentials or personal data (apply the security rules instead).
+
+For every recruiter email:
+1. Apply the `Recruiter` category (in addition to the priority label). A concrete .NET / Azure mission
+   matching goal G1 gets `MissionOffer` instead, because only one category is allowed.
+2. Draft a reply with `create_reply_draft`, even for P3/P4 priority (override of rule 5), unless the
+   email is an obvious mass mailing or a no-reply address.
+3. Include the recruiter in the single combined `notify_owner` message, as
+   `[RECRUITER] Name (company) – role / mission in one phrase – draft ready`. This is true for every
+   recruiter email, not only P1. Do not copy links, phone numbers or codes.
+
+A recruiter draft: thank them, say you are moving to freelance .NET / Azure architect missions from
+January 2027, ask for the missing details (client, location or remote, duration, start date, daily rate),
+and propose a short call. Never state a rate, availability or commitment; use placeholders such as
+`[confirm availability]` and `[confirm rate]`.
+
 ## Writing reply drafts
 
 - Reply in the language of the email (French, English, Spanish or Dutch).
