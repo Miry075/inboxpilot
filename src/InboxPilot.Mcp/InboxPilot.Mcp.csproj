@@ -13,6 +13,9 @@
     <PackageReference Include="Microsoft.Extensions.Http" Version="10.*" />
     <PackageReference Include="Google.Apis.Gmail.v1" Version="1.*" />
     <PackageReference Include="Microsoft.Graph" Version="5.*" />
+    <!-- Transitive dependency of Microsoft.Graph. Pinned to the patched release for GHSA-7j59-v9qr-6fq9
+         (RedirectHandler forwards Cookie/custom headers on cross-host redirects). Remove once Graph depends on >= 1.22.0. -->
+    <PackageReference Include="Microsoft.Kiota.Abstractions" Version="1.22.0" />
     <PackageReference Include="Azure.Identity" Version="1.*" />
   </ItemGroup>
 
